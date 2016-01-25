@@ -1,0 +1,74 @@
+#!/usr/bin/php
+<?php
+
+    //error_reporting(E_ALL);
+
+    $config = require_once("config.php");
+    $pdoConnectionString = "mysql:host={$config["DB_HOST"]};dbname={$config["DB_NAME"]};charset={$config["DB_CONNECTION_CHARSET"]}";
+
+    /** CONNECTION */
+    if (defined('PDO::ATTR_DRIVER_NAME')) {
+        try{
+            echo "Try to connect to mysql...\n";
+            $dbn = new PDO($pdoConnectionString, $config['DB_BUSER'], $config['DB_PASSWORD']);
+            echo "Connected!\n";
+        }catch(\Exception $e){
+            echo "Cannot connect to mysql: ".$e->getMessage()."\n";
+            exit(1);
+        }
+    }
+
+    $categories = require_once("categories.php");
+
+    $start = 1;
+    $end = 99999;
+
+    // TABLE FIELDS
+    $table_fields = array_values($config['FIELDS_MAPPER']);
+    foreach($table_fields as &$field) $field = "`".$field."`";
+    $table_fields = implode(",", $table_fields);
+
+    // REFERAT FIELDS
+    $ref_fields = array_keys($config['FIELDS_MAPPER']);
+    foreach($ref_fields as &$field) $field = ":".$field;
+    $ref_fields = implode(",", $ref_fields);
+
+    $SQL = "INSERT INTO {$config['DB_TABLE']}($table_fields) VALUES($ref_fields);";
+
+    $statement = $dbn->prepare($SQL);
+
+    for($i=$start; $i<=$end; $i++){
+
+        $cats = array_rand($categories, 3);
+        $_categories = $categories[$cats[0]]."+".$categories[$cats[1]]."+".$categories[$cats[2]];
+        $url = "{$config['base_url']}?t={$_categories}&s={$i}";
+
+        echo "[{$i}]: Get referats for categories: $_categories. S - {$i}...\n";
+
+        $referat = file_get_contents($url);
+
+        //parse referat
+        preg_match_all("/^\<div\>(.*?)\<\/div\>\<strong\>[А-Яа-я:]+\ \«(.*?)\»\<\/strong\>((<p>.*?<\/p>).*?)$/si", $referat, $matches);
+
+        // TITLE
+        $title = $matches[2][0];
+
+        // TEXT
+        $text = $matches[3][0];
+
+        // PREVIEW
+        $preview = $matches[4][0];
+
+        $statement->bindValue(":title", $title);
+        $statement->bindValue(":preview", $preview);
+        $statement->bindValue(":text", $text);
+
+        $statement->execute();
+
+    }
+
+    echo "Parsed {$i} referats. Exiting.";
+
+    exit();
+
+?>
