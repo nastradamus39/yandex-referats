@@ -1,12 +1,19 @@
 #!/usr/bin/php
 <?php
 
-    //error_reporting(E_ALL);
+    if(is_file(__DIR__."/config.php")){
+        $config = require_once("config.php");
+    }else{
+        echo "Config not found.\n";
+        exit();
+    }
 
-    $config = require_once("config.php");
+    if( empty($config["DB_HOST"]) || empty($config["DB_NAME"]) || empty($config["DB_CONNECTION_CHARSET"]) ){
+        echo "Connection properties not set in config.\n";
+        exit();
+    }
+
     $pdoConnectionString = "mysql:host={$config["DB_HOST"]};dbname={$config["DB_NAME"]};charset={$config["DB_CONNECTION_CHARSET"]}";
-
-    /** CONNECTION */
     if (defined('PDO::ATTR_DRIVER_NAME')) {
         try{
             echo "Try to connect to mysql...\n";
@@ -16,6 +23,9 @@
             echo "Cannot connect to mysql: ".$e->getMessage()."\n";
             exit(1);
         }
+    }else{
+        echo "PDO driver not installed.\n";
+        exit(1);
     }
 
     $categories = require_once("categories.php");
